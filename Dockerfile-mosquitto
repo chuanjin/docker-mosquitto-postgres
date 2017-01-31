@@ -1,0 +1,48 @@
+FROM alpine:3.4
+
+MAINTAINER Chuan Jin <chuan.jin.813@gmail.com>
+
+EXPOSE 1883 
+EXPOSE 1884 
+
+RUN addgroup -S mosquitto && \
+    adduser -S -H -h /var/empty -s /sbin/nologin -D -G mosquitto mosquitto
+
+ENV PATH=/usr/local/bin:/usr/local/sbin:$PATH
+ENV MOSQUITTO_VERSION=1.4.10
+
+COPY docker-entrypoint.sh /
+COPY wait-for-postgres.sh /
+
+RUN buildDeps='git alpine-sdk openssl-dev libwebsockets-dev c-ares-dev util-linux-dev postgresql-dev hiredis-dev curl-dev libxslt docbook-xsl'; \	 
+    chmod +x /docker-entrypoint.sh && \
+    chmod +x /wait-for-postgres.sh && \
+    apk update && \
+    apk add --no-cache $buildDeps libpq postgresql-client hiredis libwebsockets libuuid c-ares openssl curl ca-certificates && \
+    wget http://mosquitto.org/files/source/mosquitto-${MOSQUITTO_VERSION}.tar.gz && \
+    tar xzfv mosquitto-${MOSQUITTO_VERSION}.tar.gz && \
+    mv mosquitto-${MOSQUITTO_VERSION} mosquitto && \
+    cd mosquitto && \
+    sed -i -e "s|(INSTALL) -s|(INSTALL)|g" -e 's|--strip-program=${CROSS_COMPILE}${STRIP}||' */Makefile */*/Makefile && \
+    make WITH_MEMORY_TRACKING=no WITH_SRV=yes WITH_WEBSOCKETS=yes && \
+    make install && \
+    git clone git://github.com/jpmens/mosquitto-auth-plug.git && \
+    cd mosquitto-auth-plug && \
+    cp config.mk.in config.mk && \
+    sed -i "s/BACKEND_REDIS ?= no/BACKEND_REDIS ?= yes/" config.mk && \
+    sed -i "s/BACKEND_HTTP ?= no/BACKEND_HTTP ?= yes/" config.mk && \
+    sed -i "s/BACKEND_POSTGRES ?= no/BACKEND_POSTGRES ?= yes/" config.mk && \
+    sed -i "s/BACKEND_MYSQL ?= yes/BACKEND_MYSQL ?= no/" config.mk && \
+    sed -i "s/MOSQUITTO_SRC =/MOSQUITTO_SRC = ..\//" config.mk && \
+    sed -i "s/EVP_MD_CTX_new/EVP_MD_CTX_create/g" cache.c && \
+    sed -i "s/EVP_MD_CTX_free/EVP_MD_CTX_destroy/g" cache.c && \ 
+    make && \
+    cp auth-plug.so /usr/local/lib/ && \
+    cp np /usr/local/bin/ && chmod +x /usr/local/bin/np && \
+    cd / && rm -rf mosquitto && \
+    apk del $buildDeps && rm -rf /var/cache/apk/*
+   
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["mosquitto", "-c", "/etc/mosquitto/mosquitto.conf"]
+
