@@ -10,7 +10,7 @@ services:
     networks:
     - mosqnet
 
-  cloud_mosquitto:
+  mosquitto:
     restart: always
     build:
       context: .
