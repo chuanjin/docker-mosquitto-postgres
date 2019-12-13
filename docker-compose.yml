@@ -4,6 +4,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-postgres
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
     - "5432:5432"
     container_name: "postgres-mosq"

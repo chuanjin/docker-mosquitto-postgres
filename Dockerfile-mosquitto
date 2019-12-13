@@ -1,15 +1,16 @@
-FROM alpine:3.4
+FROM alpine:3.11.3
 
 MAINTAINER Chuan Jin <chuan.jin.813@gmail.com>
 
 EXPOSE 1883 
 EXPOSE 1884 
 
+
 RUN addgroup -S mosquitto && \
     adduser -S -H -h /var/empty -s /sbin/nologin -D -G mosquitto mosquitto
 
 ENV PATH=/usr/local/bin:/usr/local/sbin:$PATH
-ENV MOSQUITTO_VERSION=1.4.10
+ENV MOSQUITTO_VERSION=1.6.9
 
 COPY docker-entrypoint.sh /
 COPY wait-for-postgres.sh /
@@ -23,10 +24,9 @@ RUN buildDeps='git alpine-sdk openssl-dev libwebsockets-dev c-ares-dev util-linu
     tar xzfv mosquitto-${MOSQUITTO_VERSION}.tar.gz && \
     mv mosquitto-${MOSQUITTO_VERSION} mosquitto && \
     cd mosquitto && \
-    sed -i -e "s|(INSTALL) -s|(INSTALL)|g" -e 's|--strip-program=${CROSS_COMPILE}${STRIP}||' */Makefile */*/Makefile && \
     make WITH_MEMORY_TRACKING=no WITH_SRV=yes WITH_WEBSOCKETS=yes && \
     make install && \
-    git clone git://github.com/jpmens/mosquitto-auth-plug.git && \
+    git clone https://github.com/vankxr/mosquitto-auth-plug && \
     cd mosquitto-auth-plug && \
     cp config.mk.in config.mk && \
     sed -i "s/BACKEND_REDIS ?= no/BACKEND_REDIS ?= yes/" config.mk && \
@@ -34,14 +34,12 @@ RUN buildDeps='git alpine-sdk openssl-dev libwebsockets-dev c-ares-dev util-linu
     sed -i "s/BACKEND_POSTGRES ?= no/BACKEND_POSTGRES ?= yes/" config.mk && \
     sed -i "s/BACKEND_MYSQL ?= yes/BACKEND_MYSQL ?= no/" config.mk && \
     sed -i "s/MOSQUITTO_SRC =/MOSQUITTO_SRC = ..\//" config.mk && \
-    sed -i "s/EVP_MD_CTX_new/EVP_MD_CTX_create/g" cache.c && \
-    sed -i "s/EVP_MD_CTX_free/EVP_MD_CTX_destroy/g" cache.c && \ 
-    make && \
-    cp auth-plug.so /usr/local/lib/ && \
-    cp np /usr/local/bin/ && chmod +x /usr/local/bin/np && \
+    make -j "$(nproc)" && \
+    install -s -m755 auth-plug.so /usr/lib/ && \
+    install -s -m755 np /usr/bin/ && \
     cd / && rm -rf mosquitto && \
     apk del $buildDeps && rm -rf /var/cache/apk/*
-   
+
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["mosquitto", "-c", "/etc/mosquitto/mosquitto.conf"]
