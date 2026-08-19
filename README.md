@@ -1,3 +1,5 @@
+
+
 docker-mosquitto-postgres
 ===
 
@@ -8,3 +10,5 @@ To start:
 ```
 docker-compose up
 ```
+
+Mosquitto listens on ports 1883 and 1884.
