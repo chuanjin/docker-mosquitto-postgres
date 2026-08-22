@@ -1,4 +1,3 @@
-version: '2'
 services:
   mqtt_db:
     build:
@@ -28,7 +27,7 @@ services:
     depends_on:
     - mqtt_db
     labels:
-    - "local.example.description=Mosquitto v1.4.10 MQTT server"
+    - "local.example.description=Mosquitto v1.6.15 MQTT server"
     command: ["./wait-for-postgres.sh", "mqtt_db", "mosquitto", "-c", "/etc/mosquitto/mosquitto.conf"]
 
 networks:
